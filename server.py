@@ -781,10 +781,15 @@ def _cli_optimize() -> None:
 
 # --- Entry point ---
 
-if __name__ == "__main__":
+
+def main():
     if len(sys.argv) > 1 and sys.argv[1] == "optimize":
         _cli_optimize()
     elif len(sys.argv) > 1 and sys.argv[1] == "report":
         _print_savings_report()
     else:
         mcp.run()
+
+
+if __name__ == "__main__":
+    main()
