@@ -1,5 +1,5 @@
 def main():
-    print("Hello from websearch-mcp!")
+    print("Hello from request-mcp!")
 
 
 if __name__ == "__main__":
