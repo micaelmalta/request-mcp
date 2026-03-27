@@ -189,10 +189,16 @@ Override the log path with `REQUEST_MCP_SAVINGS_LOG=/custom/path.jsonl`.
 
 ## Setup
 
-Requires [uv](https://docs.astral.sh/uv/).
+No local clone required — run directly from GitHub with [uv](https://docs.astral.sh/uv/):
 
 ```bash
-git clone <repo-url> && cd request-mcp
+uvx --from git+https://github.com/micaelmalta/request-mcp.git request-mcp
+```
+
+Or clone locally for development:
+
+```bash
+git clone https://github.com/micaelmalta/request-mcp.git && cd request-mcp
 uv sync
 ```
 
@@ -203,7 +209,7 @@ uv sync
 **1. Add the MCP server:**
 
 ```bash
-claude mcp add request-mcp -- uv run --directory /path/to/request-mcp python server.py
+claude mcp add request-mcp -- uvx --from git+https://github.com/micaelmalta/request-mcp.git request-mcp
 ```
 
 **2. (Optional) Instruct the agent via `CLAUDE.md`:**
@@ -249,8 +255,9 @@ Add or remove MCP prefixes from the matcher as needed.
 {
   "mcpServers": {
     "request-mcp": {
-      "command": "uv",
-      "args": ["run", "--directory", "/path/to/request-mcp", "python", "server.py"]
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/micaelmalta/request-mcp.git", "request-mcp"]
     }
   }
 }
@@ -273,8 +280,8 @@ file path directly. Use the jsonpath parameter to drill into specific fields.
   "mcpServers": {
     "request-mcp": {
       "type": "stdio",
-      "command": "uv",
-      "args": ["run", "--directory", "/path/to/request-mcp", "python", "server.py"]
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/micaelmalta/request-mcp.git", "request-mcp"]
     }
   }
 }
@@ -299,8 +306,8 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 {
   "mcpServers": {
     "request-mcp": {
-      "command": "uv",
-      "args": ["run", "--directory", "/path/to/request-mcp", "python", "server.py"]
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/micaelmalta/request-mcp.git", "request-mcp"]
     }
   }
 }
