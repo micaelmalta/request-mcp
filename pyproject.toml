@@ -1,0 +1,18 @@
+[project]
+name = "websearch-mcp"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "ddgs>=9.10.0",
+    "html-to-markdown>=2.26.3",
+    "httpx>=0.28.1",
+    "mcp[cli]>=1.26.0",
+    "truststore>=0.10.4",
+]
+
+[dependency-groups]
+dev = [
+    "tiktoken>=0.12.0",
+]
