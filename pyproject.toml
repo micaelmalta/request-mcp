@@ -5,11 +5,11 @@ description = "The high-efficiency networking layer for LLMs. Reduce token consu
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
-    "beautifulsoup4>=4.13.0",
-    "ddgs>=9.10.0",
-    "html-to-markdown>=2.26.3",
+    "beautifulsoup4>=4.14.3",
+    "ddgs>=9.12.0",
+    "html-to-markdown>=2.30.0",
     "httpx>=0.28.1",
-    "jsonpath-ng>=1.7.0",
+    "jsonpath-ng>=1.8.0",
     "mcp[cli]>=1.26.0",
     "truststore>=0.10.4",
 ]
