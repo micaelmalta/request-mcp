@@ -3,7 +3,7 @@ name = "request-mcp"
 version = "0.1.0"
 description = "The high-efficiency networking layer for LLMs. Reduce token consumption by 58%+ by cleaning web data before it hits your context window."
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.10"
 dependencies = [
     "beautifulsoup4>=4.14.3",
     "ddgs>=9.12.0",
@@ -19,5 +19,6 @@ request-mcp = "server:main"
 
 [dependency-groups]
 dev = [
+    "pytest>=8.0.0",
     "tiktoken>=0.12.0",
 ]
