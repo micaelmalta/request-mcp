@@ -1,5 +1,9 @@
 import json
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 from server import _prune_json, _build_schema_summary, _should_use_schema_mode
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "json"
