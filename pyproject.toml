@@ -19,6 +19,6 @@ request-mcp = "server:main"
 
 [dependency-groups]
 dev = [
-    "pytest>=8.0.0",
+    "pytest>=9.0.3",
     "tiktoken>=0.12.0",
 ]
