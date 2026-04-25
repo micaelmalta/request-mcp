@@ -1,32 +1,44 @@
 """request-mcp — The high-efficiency networking layer for LLMs.
 
 Also usable as a CLI for hooking into other tool outputs:
+    python server.py smart_fetch https://example.com
+    python server.py smart_fetch https://api.github.com/orgs/python/repos --jsonpath '$[*].name'
     echo '{"big": "json"}' | python server.py optimize
     echo '{"big": "json"}' | python server.py optimize --jsonpath '$.key'
+
+`gh run view` requires explicit JSON fields, for example:
+    gh run view <id> --repo owner/repo --json jobs,conclusion,status,displayTitle \\
+      | python server.py optimize
 """
 
-import asyncio
+from __future__ import annotations
+
 import json
 import os
 import re
-import ssl
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated
 
-import html_to_markdown
-from bs4 import BeautifulSoup
-from html_to_markdown import ConversionOptions
 from jsonpath_ng.ext import parse as jsonpath_parse
-import httpx
-import truststore
-from ddgs import DDGS
 from mcp.server.fastmcp import FastMCP
 from pydantic import Field
 
-# Use system certificate store (fixes macOS SSL issues with Homebrew Python)
-_ssl_ctx = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+# Lazy-init: `python server.py optimize` must not import httpx/html_to_markdown/ddgs.
+_ssl_ctx = None
+
+
+def _get_ssl_ctx():
+    """System certificate store (fixes macOS SSL issues with Homebrew Python)."""
+    global _ssl_ctx
+    if _ssl_ctx is None:
+        import ssl
+
+        import truststore
+
+        _ssl_ctx = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    return _ssl_ctx
 
 # --- Constants ---
 
@@ -58,17 +70,36 @@ mcp = FastMCP(
 # --- Shared Utilities ---
 
 
-def _build_client() -> httpx.AsyncClient:
+def _build_client():
     """Build a configured async HTTP client."""
+    import httpx
+
     return httpx.AsyncClient(
         timeout=DEFAULT_TIMEOUT,
         follow_redirects=True,
         headers={"User-Agent": USER_AGENT},
-        verify=_ssl_ctx,
+        verify=_get_ssl_ctx(),
     )
 
 
-async def _fetch_raw(url: str) -> httpx.Response:
+def _find_chrome_executable() -> str | None:
+    """Return a local Chrome/Chromium executable if one is installed."""
+    candidates = [
+        os.environ.get("REQUEST_MCP_CHROME_PATH"),
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        "/Applications/Chromium.app/Contents/MacOS/Chromium",
+        "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+        "/usr/bin/google-chrome",
+        "/usr/bin/chromium",
+        "/usr/bin/chromium-browser",
+        "C:/Program Files/Google/Chrome/Application/chrome.exe",
+        "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe",
+        "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
+    ]
+    return next((path for path in candidates if path and Path(path).exists()), None)
+
+
+async def _fetch_raw(url: str):
     """Fetch a URL and return the raw response."""
     async with _build_client() as client:
         response = await client.get(url)
@@ -80,14 +111,27 @@ def _html_to_markdown(
     html: str,
     max_chars: int = DEFAULT_MAX_CHARS,
     extract_metadata: bool = False,
-    heading_style: str = "atx",
 ) -> str:
     """Convert HTML to clean markdown, truncating if needed."""
-    options = ConversionOptions(
-        heading_style=heading_style,
-        extract_metadata=extract_metadata,
-    )
-    result = html_to_markdown.convert(html, options=options)
+    import html_to_markdown
+
+    # html-to-markdown 3.3.2 raises a KeyError when converting Python-side
+    # ConversionOptions to Rust options on Python 3.14, so use package defaults.
+    raw = html_to_markdown.convert(html)
+    # html-to-markdown versions vary: 3.x returns ConversionResult, older releases
+    # returned either a dict or a string.
+    if isinstance(raw, dict):
+        result = raw.get("content", "")
+        if not isinstance(result, str):
+            result = str(result)
+    elif isinstance(raw, str):
+        result = raw
+    elif isinstance(getattr(raw, "content", None), str):
+        result = raw.content
+    else:
+        result = str(raw)
+    if not extract_metadata:
+        result = re.sub(r"\A---\n.*?\n---\n*", "", result, count=1, flags=re.DOTALL)
     if len(result) > max_chars:
         result = result[:max_chars] + "\n\n[... truncated]"
     return result
@@ -206,7 +250,6 @@ def _dedup_array(items: list) -> list:
     # --- Phase 2: deduplicate repeated nested dicts ---
     # Fingerprint every nested dict across all items
     dict_registry: dict[str, tuple[str, object]] = {}  # fingerprint -> (ref_name, value)
-    ref_counter = 0
 
     for item in items:
         for key, val in item.items():
@@ -273,7 +316,7 @@ def _hashable(v: object) -> object:
     return v
 
 
-def _is_json_content(response: httpx.Response) -> bool:
+def _is_json_content(response) -> bool:
     """Detect if a response contains JSON content."""
     ct = response.headers.get("content-type", "")
     return "json" in ct or "javascript" in ct
@@ -356,6 +399,8 @@ def _should_use_schema_mode(data: object) -> bool:
 
 def _handle_error(e: Exception) -> str:
     """Format errors consistently."""
+    import httpx
+
     if isinstance(e, httpx.TimeoutException):
         return f"Error: Request timed out — {e}"
     if isinstance(e, httpx.HTTPStatusError):
@@ -411,7 +456,7 @@ def _print_savings_report() -> None:
     total_saved = total_raw - total_opt
     total_pct = round(total_saved / total_raw * 100, 1) if total_raw else 0
 
-    print(f"request-mcp savings report")
+    print("request-mcp savings report")
     print(f"Log: {_SAVINGS_LOG}")
     print(f"Entries: {len(entries)}")
     print()
@@ -596,6 +641,8 @@ async def web_search(
 ) -> str:
     """Search the web using DuckDuckGo and return results as a markdown list."""
     try:
+        from ddgs import DDGS
+
         results = DDGS().text(query, max_results=max_results, region=region)
     except Exception as e:
         return _handle_error(e)
@@ -637,6 +684,8 @@ async def css_query(
     product description, or article body) to save maximum tokens.
     """
     try:
+        from bs4 import BeautifulSoup
+
         response = await _fetch_raw(url)
         soup = BeautifulSoup(response.text, "html.parser")
         elements = soup.select(selector)
@@ -657,6 +706,104 @@ async def css_query(
 
     except Exception as e:
         return _handle_error(e)
+
+
+@mcp.tool(
+    annotations={
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": True,
+    }
+)
+async def browser_fetch(
+    url: Annotated[str, Field(description="URL to fetch with a real browser")],
+    selector: Annotated[
+        str | None,
+        Field(description="Optional CSS selector to extract from the rendered page"),
+    ] = None,
+    wait_ms: Annotated[
+        int, Field(description="Milliseconds to wait after DOMContentLoaded", ge=0, le=120_000)
+    ] = 3_000,
+    timeout_ms: Annotated[
+        int, Field(description="Navigation timeout in milliseconds", ge=1_000, le=120_000)
+    ] = 30_000,
+    headed: Annotated[
+        bool,
+        Field(description="Open a visible browser window for human-in-the-loop CAPTCHA/login"),
+    ] = False,
+    extract_metadata: Annotated[
+        bool, Field(description="Include YAML frontmatter with page metadata")
+    ] = False,
+    max_chars: Annotated[
+        int, Field(description="Maximum characters in output", ge=1000, le=100_000)
+    ] = DEFAULT_MAX_CHARS,
+) -> str:
+    """Fetch a JavaScript-rendered page with Playwright and return markdown.
+
+    This is useful when a site blocks simple HTTP clients or requires client-side
+    rendering. It does not bypass CAPTCHA; use headed mode to solve challenges
+    manually, then let the tool extract the page.
+    """
+    try:
+        from playwright.async_api import TimeoutError as PlaywrightTimeoutError
+        from playwright.async_api import async_playwright
+    except ImportError:
+        return (
+            "Error: Playwright is not installed. Install it with `uv add playwright`, "
+            "then retry. If no Chrome is installed, also run `uv run playwright install chromium`."
+        )
+
+    browser = None
+    try:
+        async with async_playwright() as p:
+            launch_kwargs: dict[str, object] = {"headless": not headed}
+            chrome_path = _find_chrome_executable()
+            if chrome_path:
+                launch_kwargs["executable_path"] = chrome_path
+
+            browser = await p.chromium.launch(**launch_kwargs)
+            page = await browser.new_page(
+                user_agent=USER_AGENT,
+                viewport={"width": 1280, "height": 900},
+            )
+
+            response = await page.goto(
+                url,
+                wait_until="domcontentloaded",
+                timeout=timeout_ms,
+            )
+            if wait_ms:
+                await page.wait_for_timeout(wait_ms)
+
+            if selector:
+                locator = page.locator(selector)
+                count = await locator.count()
+                if count == 0:
+                    return f"No elements matched selector: {selector}"
+                html = await locator.evaluate_all(
+                    "els => els.map(el => el.outerHTML).join('\\n\\n')"
+                )
+            else:
+                html = await page.content()
+
+            result = _html_to_markdown(
+                html,
+                max_chars=max_chars,
+                extract_metadata=extract_metadata,
+            )
+            status = response.status if response else "unknown"
+            _log_savings(len(html), len(result), source=f"browser_fetch:{url[:60]}")
+            if isinstance(status, int) and status >= 400:
+                return f"HTTP status from browser: {status}\n\n{result}"
+            return result
+    except PlaywrightTimeoutError as e:
+        return f"Error: Browser navigation timed out — {e}"
+    except Exception as e:
+        return _handle_error(e)
+    finally:
+        if browser is not None:
+            await browser.close()
 
 
 @mcp.tool(
@@ -779,12 +926,139 @@ def _cli_optimize() -> None:
     print(output)
 
 
+def _cli_smart_fetch() -> None:
+    """CLI entrypoint: fetches a URL and writes optimized content to stdout.
+
+    Usage:
+        python server.py smart_fetch <url> [--jsonpath '$[*].name']
+        python server.py smart_fetch <url> --max-depth 5 --max-chars 20000
+    """
+    import argparse
+    import asyncio
+
+    parser = argparse.ArgumentParser(
+        prog="request-mcp smart_fetch",
+        description="Fetch a URL and auto-optimize HTML or JSON for LLM usage.",
+    )
+    parser.add_argument("url", help="URL to fetch")
+    parser.add_argument(
+        "--jsonpath", default=None, help="JSONPath expression to extract specific fields"
+    )
+    parser.add_argument(
+        "--max-depth", type=int, default=5, help="Max JSON nesting depth before flattening"
+    )
+    parser.add_argument(
+        "--extract-metadata",
+        action="store_true",
+        help="Include YAML frontmatter with page metadata for HTML responses",
+    )
+    parser.add_argument(
+        "--max-chars",
+        type=int,
+        default=DEFAULT_MAX_CHARS,
+        help="Maximum characters to output",
+    )
+    args = parser.parse_args(sys.argv[2:])
+
+    result = asyncio.run(
+        smart_fetch(
+            args.url,
+            jsonpath=args.jsonpath,
+            max_depth=args.max_depth,
+            extract_metadata=args.extract_metadata,
+            max_chars=args.max_chars,
+        )
+    )
+    print(result)
+
+
+def _cli_browser_fetch() -> None:
+    """CLI entrypoint: fetches a rendered page with Playwright."""
+    import argparse
+    import asyncio
+
+    parser = argparse.ArgumentParser(
+        prog="request-mcp browser_fetch",
+        description="Fetch a URL with Playwright/Chrome and return optimized markdown.",
+    )
+    parser.add_argument("url", help="URL to fetch")
+    parser.add_argument(
+        "--selector", default=None, help="CSS selector to extract from the rendered page"
+    )
+    parser.add_argument(
+        "--wait-ms",
+        type=int,
+        default=3_000,
+        help="Milliseconds to wait after DOMContentLoaded",
+    )
+    parser.add_argument(
+        "--timeout-ms",
+        type=int,
+        default=30_000,
+        help="Navigation timeout in milliseconds",
+    )
+    parser.add_argument(
+        "--headed",
+        action="store_true",
+        help="Open a visible browser window for manual CAPTCHA/login steps",
+    )
+    parser.add_argument(
+        "--extract-metadata",
+        action="store_true",
+        help="Include YAML frontmatter with page metadata",
+    )
+    parser.add_argument(
+        "--max-chars",
+        type=int,
+        default=DEFAULT_MAX_CHARS,
+        help="Maximum characters to output",
+    )
+    args = parser.parse_args(sys.argv[2:])
+
+    result = asyncio.run(
+        browser_fetch(
+            args.url,
+            selector=args.selector,
+            wait_ms=args.wait_ms,
+            timeout_ms=args.timeout_ms,
+            headed=args.headed,
+            extract_metadata=args.extract_metadata,
+            max_chars=args.max_chars,
+        )
+    )
+    print(result)
+
+
+def _print_cli_help() -> None:
+    print(
+        """usage: python server.py [command] [options]
+
+Commands:
+  smart_fetch URL      Fetch a URL and auto-optimize HTML or JSON
+  smart-fetch URL      Alias for smart_fetch
+  browser_fetch URL    Fetch a rendered page with Playwright/Chrome
+  browser-fetch URL    Alias for browser_fetch
+  optimize            Optimize JSON from stdin
+  report              Show cumulative savings report
+
+Run `python server.py <command> --help` for command-specific options.
+Run without a command to start the MCP stdio server.
+"""
+    )
+
+
 # --- Entry point ---
 
 
 def main():
-    if len(sys.argv) > 1 and sys.argv[1] == "optimize":
+    if len(sys.argv) > 1 and sys.argv[1] in {"-h", "--help", "help"}:
+        _print_cli_help()
+    elif len(sys.argv) > 1 and sys.argv[1] == "optimize":
         _cli_optimize()
+    elif len(sys.argv) > 1 and sys.argv[1] in {"smart_fetch", "smart-fetch"}:
+        _cli_smart_fetch()
+    elif len(sys.argv) > 1 and sys.argv[1] in {"browser_fetch", "browser-fetch"}:
+        _cli_browser_fetch()
     elif len(sys.argv) > 1 and sys.argv[1] == "report":
         _print_savings_report()
     else:
