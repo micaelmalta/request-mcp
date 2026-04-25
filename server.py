@@ -92,6 +92,9 @@ def _find_chrome_executable() -> str | None:
         "/usr/bin/google-chrome",
         "/usr/bin/chromium",
         "/usr/bin/chromium-browser",
+        "C:/Program Files/Google/Chrome/Application/chrome.exe",
+        "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe",
+        "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
     ]
     return next((path for path in candidates if path and Path(path).exists()), None)
 
@@ -778,10 +781,9 @@ async def browser_fetch(
                 count = await locator.count()
                 if count == 0:
                     return f"No elements matched selector: {selector}"
-                parts = []
-                for i in range(count):
-                    parts.append(await locator.nth(i).evaluate("el => el.outerHTML"))
-                html = "\n\n".join(parts)
+                html = await locator.evaluate_all(
+                    "els => els.map(el => el.outerHTML).join('\\n\\n')"
+                )
             else:
                 html = await page.content()
 

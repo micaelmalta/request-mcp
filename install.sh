@@ -6,7 +6,7 @@ REF="${REQUEST_MCP_REF:-main}"
 SKILLS_DIR="${CLAUDE_SKILLS_DIR:-$HOME/.claude/skills}"
 SKILL_NAME="${REQUEST_MCP_SKILL_NAME:-request-mcp}"
 DEST_DIR="$SKILLS_DIR/$SKILL_NAME"
-ARCHIVE_URL="${REPO_URL%/}/archive/refs/heads/${REF}.tar.gz"
+ARCHIVE_URL="${REPO_URL%/}/archive/${REF}.tar.gz"
 
 TMP_DIR="$(mktemp -d)"
 ARCHIVE_PATH="$TMP_DIR/request-mcp.tar.gz"
