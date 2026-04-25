@@ -176,7 +176,7 @@ uv run python server.py smart_fetch https://example.com
 uv run python server.py smart_fetch https://api.github.com/orgs/python/repos --jsonpath '$[*].name'
 
 # Browser-fetch a JavaScript-rendered or HTTP-client-blocked page
-uv run python server.py browser_fetch https://www.capterra.com/p/223913/Justworks/
+uv run python server.py browser_fetch https://example.com
 
 # Open a visible browser for manual CAPTCHA/login, then extract after waiting
 uv run python server.py browser_fetch https://example.com --headed --wait-ms 30000

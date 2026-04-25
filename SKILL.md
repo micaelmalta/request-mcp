@@ -21,7 +21,7 @@ uv run python server.py smart_fetch https://api.github.com/orgs/python/repos --j
 Use `browser_fetch` when a page needs JavaScript rendering or blocks simple HTTP clients:
 
 ```bash
-uv run python server.py browser_fetch https://www.capterra.com/p/223913/Justworks/
+uv run python server.py browser_fetch https://example.com
 uv run python server.py browser_fetch https://example.com --selector main
 ```
 
