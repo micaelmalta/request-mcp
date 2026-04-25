@@ -10,6 +10,7 @@ ARCHIVE_URL="${REPO_URL%/}/archive/${REF}.tar.gz"
 
 TMP_DIR="$(mktemp -d)"
 ARCHIVE_PATH="$TMP_DIR/request-mcp.tar.gz"
+EXTRACT_DIR="$TMP_DIR/extract"
 
 cleanup() {
   rm -rf "$TMP_DIR"
@@ -29,11 +30,12 @@ download() {
 
 echo "Installing request-mcp skill from $REPO_URL@$REF"
 mkdir -p "$SKILLS_DIR"
+mkdir -p "$EXTRACT_DIR"
 download
-tar -xzf "$ARCHIVE_PATH" -C "$TMP_DIR"
+tar -xzf "$ARCHIVE_PATH" -C "$EXTRACT_DIR"
 
 shopt -s nullglob
-EXTRACTED_DIRS=("$TMP_DIR"/*)
+EXTRACTED_DIRS=("$EXTRACT_DIR"/*)
 shopt -u nullglob
 
 if [ "${#EXTRACTED_DIRS[@]}" -ne 1 ] || [ ! -d "${EXTRACTED_DIRS[0]}" ]; then
