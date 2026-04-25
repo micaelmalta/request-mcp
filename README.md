@@ -73,6 +73,7 @@ At Sonnet pricing ($3/M), that's **$0.79 saved per batch**. At Opus pricing ($15
 | Tool | What it does |
 |------|-------------|
 | [`smart_fetch`](#smart_fetch) | Fetch any URL — auto-optimizes HTML (→ markdown) and JSON (→ schema-first) |
+| [`browser_fetch`](#browser_fetch) | Fetch JavaScript-rendered pages with Playwright/Chrome |
 | [`web_search`](#web_search) | Search the web via DuckDuckGo, no API key needed |
 | [`css_query`](#css_query) | Fetch a page, return only elements matching a CSS selector |
 | [`optimize_json`](#optimize_json) | Optimize any JSON blob — use on output from other MCP servers |
@@ -91,6 +92,22 @@ Fetches a URL and auto-detects the content type:
 | `jsonpath` | str | `None` | JSONPath to extract specific fields (e.g. `$[*].name`, `$[?@.id==42]`) |
 | `max_depth` | int | `5` | Max JSON nesting depth before flattening to dot-notation |
 | `extract_metadata` | bool | `False` | Include YAML frontmatter with page metadata (HTML only) |
+| `max_chars` | int | `20000` | Maximum characters in output (1,000–100,000) |
+
+### `browser_fetch`
+
+Fetches a URL with Playwright/Chrome, waits for the rendered page, and converts the final HTML to markdown.
+
+Use this for pages that block simple HTTP clients or require JavaScript rendering. It does **not** bypass CAPTCHA; use headed mode when a human needs to complete a challenge or login before extraction.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `url` | str | *required* | URL to fetch |
+| `selector` | str | `None` | Optional CSS selector to extract from the rendered page |
+| `wait_ms` | int | `3000` | Milliseconds to wait after `DOMContentLoaded` |
+| `timeout_ms` | int | `30000` | Navigation timeout in milliseconds |
+| `headed` | bool | `False` | Open a visible browser window for manual CAPTCHA/login |
+| `extract_metadata` | bool | `False` | Include YAML frontmatter with page metadata |
 | `max_chars` | int | `20000` | Maximum characters in output (1,000–100,000) |
 
 ### `web_search`
@@ -149,20 +166,32 @@ Applied by both `smart_fetch` (on JSON URLs) and `optimize_json` (on any JSON bl
 
 ## CLI
 
-The optimizer is also available as a standalone CLI for shell pipes, scripts, and hooks.
+The fetcher and optimizer are also available as a standalone CLI for shell pipes, scripts, and hooks.
 
 ```bash
+# Smart-fetch any URL
+uv run python server.py smart_fetch https://example.com
+
+# Smart-fetch JSON and extract specific fields with JSONPath
+uv run python server.py smart_fetch https://api.github.com/orgs/python/repos --jsonpath '$[*].name'
+
+# Browser-fetch a JavaScript-rendered or HTTP-client-blocked page
+uv run python server.py browser_fetch https://www.capterra.com/p/223913/Justworks/
+
+# Open a visible browser for manual CAPTCHA/login, then extract after waiting
+uv run python server.py browser_fetch https://example.com --headed --wait-ms 30000
+
 # Optimize any JSON from stdin
-curl -s https://api.github.com/orgs/python/repos | python server.py optimize
+curl -s https://api.github.com/orgs/python/repos | uv run python server.py optimize
 
 # Extract specific fields with JSONPath
-cat response.json | python server.py optimize --jsonpath '$[*].name'
+cat response.json | uv run python server.py optimize --jsonpath '$[*].name'
 
 # Control nesting depth
-echo '{"deep": {"nested": {"data": 1}}}' | python server.py optimize --max-depth 2
+echo '{"deep": {"nested": {"data": 1}}}' | uv run python server.py optimize --max-depth 2
 
 # View savings report
-python server.py report
+uv run python server.py report
 ```
 
 ### Savings Tracking
@@ -170,7 +199,7 @@ python server.py report
 Every call to `optimize_json`, `smart_fetch`, and the CLI logs the before/after character counts to `~/.local/share/request-mcp/savings.jsonl`. View the cumulative report:
 
 ```bash
-python server.py report
+uv run python server.py report
 ```
 
 ```
@@ -200,6 +229,18 @@ Or clone locally for development:
 ```bash
 git clone https://github.com/micaelmalta/request-mcp.git && cd request-mcp
 uv sync
+```
+
+Install as a Claude skill:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/micaelmalta/request-mcp/main/install.sh | bash
+```
+
+Install a different branch or tag:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/micaelmalta/request-mcp/main/install.sh | REQUEST_MCP_REF=your-branch-or-tag bash
 ```
 
 ## Integration
@@ -326,7 +367,7 @@ uv run mcp dev server.py
 | **Add MCP** | `claude mcp add` | `.cursor/mcp.json` | `.opencode.json` | `claude_desktop_config.json` |
 | **Instruct agent** | `CLAUDE.md` | `.cursorrules` | `.opencode.md` | Server instructions (built-in) |
 | **Auto-hook + logging** | `PostToolUse` hook | Not supported | Not supported | Not supported |
-| **CLI pipe** | `\| python server.py optimize` | N/A | N/A | N/A |
+| **CLI pipe** | `\| uv run python server.py optimize` | N/A | N/A | N/A |
 
 ## Benchmark
 

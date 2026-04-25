@@ -4,13 +4,17 @@ import asyncio
 import json
 import time
 
-import html_to_markdown
 import httpx
 import tiktoken
 import ssl
 
 import truststore
-from server import _prune_json, _should_use_schema_mode, _build_schema_summary
+from server import (
+    _build_schema_summary,
+    _html_to_markdown,
+    _prune_json,
+    _should_use_schema_mode,
+)
 
 USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -26,6 +30,7 @@ HTML_URLS = [
     ("Rust Lang", "https://www.rust-lang.org/"),
     ("Go pkg — net/http", "https://pkg.go.dev/net/http"),
     ("Python docs — asyncio", "https://docs.python.org/3/library/asyncio.html"),
+    ("Socket.dev — Axios compromise", "https://socket.dev/blog/hidden-blast-radius-of-the-axios-compromise"),
 ]
 
 JSON_URLS = [
@@ -40,6 +45,8 @@ enc = tiktoken.get_encoding("cl100k_base")  # GPT-4 / Claude approximation
 
 
 def count_tokens(text: str) -> int:
+    if not isinstance(text, str):
+        text = str(text)
     return len(enc.encode(text))
 
 
@@ -64,7 +71,8 @@ async def benchmark_html(name: str, url: str) -> dict | None:
         return None
 
     t0 = time.perf_counter()
-    md = html_to_markdown.convert(html)
+    # html-to-markdown 3.x returns a dict; _html_to_markdown matches server.py / smart_fetch.
+    md = _html_to_markdown(html, max_chars=10_000_000)
     convert_ms = (time.perf_counter() - t0) * 1000
 
     raw_tokens = count_tokens(html)
