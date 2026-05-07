@@ -82,6 +82,7 @@ At Sonnet pricing ($3/M), that's **$1.33 saved per batch**. At Opus pricing ($15
 | [`browser_fetch`](#browser_fetch) | Fetch JavaScript-rendered pages with Playwright/Chrome |
 | [`web_search`](#web_search) | Search the web via DuckDuckGo, no API key needed |
 | [`css_query`](#css_query) | Fetch a page, return only elements matching a CSS selector |
+| [`pdf_fetch`](#pdf_fetch) | Fetch a PDF URL and return its text content (requires `pdfminer.six`) |
 | [`optimize_json`](#optimize_json) | Optimize any JSON blob — use on output from other MCP servers |
 
 ### `smart_fetch`
@@ -136,6 +137,18 @@ Fetch a page and return only content matching a CSS selector. Use when you know 
 | `selector` | str | *required* | CSS selector (e.g. `#pricing-table`, `.product-card`, `article`) |
 | `max_chars` | int | `20000` | Maximum characters in output (1,000–100,000) |
 
+### `pdf_fetch`
+
+Fetch a URL that serves a PDF and return its text as plain markdown. Falls back to HTML→markdown if the URL does not return a PDF.
+
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `url` | str | *required* | URL of a PDF document |
+| `pages` | str | `None` | Page range to extract, e.g. `"1-5"` or `"3"`. Default: all pages. |
+| `headers` | dict | `None` | Optional HTTP headers (e.g. `{"Authorization": "Bearer token"}`) |
+| `max_chars` | int | `20000` | Maximum characters in output (1,000–100,000) |
+
 ### `optimize_json`
 
 Optimize any JSON payload — from other MCP servers, API responses, or files. This is the key tool for reducing token usage across your entire MCP stack.
@@ -186,6 +199,12 @@ uv run fetch-mcp browser_fetch https://example.com
 
 # Open a visible browser for manual CAPTCHA/login, then extract after waiting
 uv run fetch-mcp browser_fetch https://example.com --headed --wait-ms 30000
+
+# Fetch a PDF and extract its text (requires: uv add pdfminer.six)
+uv run fetch-mcp pdf_fetch https://example.com/paper.pdf
+
+# Extract specific pages from a PDF
+uv run fetch-mcp pdf_fetch https://example.com/report.pdf --pages 1-5
 
 # Optimize any JSON from stdin
 curl -s https://api.github.com/orgs/python/repos | uv run fetch-mcp optimize

@@ -11,6 +11,7 @@ dependencies = [
     "httpx>=0.28.1",
     "jsonpath-ng>=1.8.0",
     "mcp[cli]>=1.26.0",
+    "pdfminer.six>=20221105",
     "playwright>=1.58.0",
     "truststore>=0.10.4",
 ]
@@ -28,6 +29,8 @@ default = true
 
 [dependency-groups]
 dev = [
+    "fpdf2>=2.7.0",
+    "pdfminer.six>=20221105",
     "pytest>=8.0.0",
     "pytest-asyncio>=0.24",
     "pytest-httpx>=0.35",

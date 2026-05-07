@@ -25,6 +25,7 @@ from fetch_mcp.json_optimizer import (
     _prune_json,
     _should_use_schema_mode,
 )
+from fetch_mcp.pdf import _extract_pdf_text
 from fetch_mcp.savings import _log_savings
 
 mcp = FastMCP(
@@ -340,6 +341,46 @@ async def browser_fetch(
     finally:
         if browser is not None:
             await browser.close()
+
+
+@mcp.tool(
+    annotations={
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": True,
+    }
+)
+async def pdf_fetch(
+    url: Annotated[str, Field(description="URL of a PDF document")],
+    pages: Annotated[
+        str | None,
+        Field(description="Page range to extract, e.g. '1-5' or '3'. Default: all pages."),
+    ] = None,
+    headers: Annotated[
+        dict[str, str] | None,
+        Field(description="Optional HTTP headers (e.g. Authorization)"),
+    ] = None,
+    max_chars: Annotated[
+        int, Field(description="Maximum characters in output", ge=1000, le=100_000)
+    ] = DEFAULT_MAX_CHARS,
+) -> str:
+    """Fetch a PDF URL and return its text content as markdown.
+
+    Falls back to HTML markdown if the URL does not return a PDF.
+    """
+    try:
+        response = await _fetch_raw(url, extra_headers=headers)
+        content_type = response.headers.get("content-type", "")
+        if "pdf" not in content_type:
+            html_result = _html_to_markdown(response.text, max_chars=max_chars)
+            return f"Note: URL did not return a PDF. Returning HTML content instead.\n\n{html_result}"
+
+        result = _extract_pdf_text(response.content, max_chars=max_chars, pages=pages)
+        _log_savings(len(response.content), len(result), source=f"pdf_fetch:{url[:60]}")
+        return result
+    except Exception as e:
+        return _handle_error(e)
 
 
 @mcp.tool(
