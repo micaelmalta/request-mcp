@@ -26,8 +26,13 @@ build-backend = "hatchling.build"
 url = "https://pypi.org/simple"
 default = true
 
+[project.optional-dependencies]
+pdf = ["pdfminer.six>=20221105"]
+
 [dependency-groups]
 dev = [
+    "fpdf2>=2.7.0",
+    "pdfminer.six>=20221105",
     "pytest>=8.0.0",
     "pytest-asyncio>=0.24",
     "pytest-httpx>=0.35",
