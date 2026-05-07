@@ -139,6 +139,27 @@ def _cli_browser_fetch() -> None:
     print(result)
 
 
+def _cli_pdf_fetch() -> None:
+    """CLI: fetches a PDF URL and returns extracted text."""
+    import argparse
+    import asyncio
+
+    from fetch_mcp.http import DEFAULT_MAX_CHARS
+    from fetch_mcp.server import pdf_fetch
+
+    parser = argparse.ArgumentParser(
+        prog="fetch-mcp pdf_fetch",
+        description="Fetch a PDF URL and return its text content.",
+    )
+    parser.add_argument("url")
+    parser.add_argument("--pages", default=None, help="Page range, e.g. '1-5' or '3'")
+    parser.add_argument("--max-chars", type=int, default=DEFAULT_MAX_CHARS)
+    args = parser.parse_args(sys.argv[2:])
+
+    result = asyncio.run(pdf_fetch(args.url, pages=args.pages, max_chars=args.max_chars))
+    print(result)
+
+
 def main() -> None:
     # Lazy import: only load the MCP server when actually starting it,
     # so `fetch-mcp optimize` doesn't pull in httpx/playwright/ddgs.
@@ -150,6 +171,8 @@ def main() -> None:
         _cli_smart_fetch()
     elif len(sys.argv) > 1 and sys.argv[1] in {"browser_fetch", "browser-fetch"}:
         _cli_browser_fetch()
+    elif len(sys.argv) > 1 and sys.argv[1] in {"pdf_fetch", "pdf-fetch"}:
+        _cli_pdf_fetch()
     elif len(sys.argv) > 1 and sys.argv[1] == "report":
         _print_savings_report()
     else:
