@@ -1,4 +1,4 @@
-# Request MCP Server
+# Fetch MCP Server
 
 The high-efficiency networking layer for LLMs. Reduce token consumption by **58–87%** by cleaning web and API data before it hits your context window.
 
