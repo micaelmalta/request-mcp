@@ -81,9 +81,11 @@ def test_cli_report_prints_table(capsys, tmp_path, monkeypatch):
     import importlib
 
     import fetch_mcp.savings as savings_mod
+
     importlib.reload(savings_mod)
 
     import fetch_mcp.cli as cli_mod
+
     monkeypatch.setattr(cli_mod, "_print_savings_report", savings_mod._print_savings_report)
 
     _run_main(["report"])

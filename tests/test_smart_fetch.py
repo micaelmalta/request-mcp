@@ -68,9 +68,11 @@ async def test_smart_fetch_logs_savings(httpx_mock, tmp_path, monkeypatch):
     import importlib
 
     import fetch_mcp.savings as savings_mod
+
     importlib.reload(savings_mod)
 
     import fetch_mcp.server as server_mod
+
     monkeypatch.setattr(server_mod, "_log_savings", savings_mod._log_savings)
 
     httpx_mock.add_response(
