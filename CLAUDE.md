@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-`fetch-mcp` is a FastMCP server that acts as a high-efficiency networking layer for LLMs. It reduces token consumption by 58–87% by cleaning HTML and JSON before it reaches the context window. The server exposes five tools: `smart_fetch`, `browser_fetch`, `web_search`, `css_query`, and `optimize_json`.
+`fetch-mcp` is a FastMCP server that acts as a high-efficiency networking layer for LLMs. It reduces token consumption by 58–87% by cleaning HTML and JSON before it reaches the context window. The server exposes six tools: `smart_fetch`, `browser_fetch`, `web_search`, `css_query`, `pdf_fetch`, and `optimize_json`.
 
 ## Commands
 
@@ -54,11 +54,13 @@ uv run mcp dev fetch_mcp/server.py
 ```
 fetch_mcp/
 ├── __init__.py        # re-exports main() for the entry point
-├── server.py          # FastMCP instance (mcp) + all five @mcp.tool() registrations
-├── cli.py             # CLI dispatch: main(), _cli_optimize/smart_fetch/browser_fetch
+├── server.py          # FastMCP instance (mcp) + all six @mcp.tool() registrations
+├── cli.py             # CLI dispatch: main(), _cli_optimize/smart_fetch/browser_fetch/pdf_fetch
+├── cache.py           # _Cache, _CacheEntry, _response_cache — in-process TTL cache
 ├── json_optimizer.py  # _prune_json pipeline, schema-first mode (_build_schema_summary)
 ├── html.py            # _html_to_markdown (wraps html-to-markdown Rust lib)
-├── http.py            # _build_client, _fetch_raw, _find_chrome_executable, _get_ssl_ctx
+├── http.py            # _build_client, _fetch_raw (extra_headers), _find_chrome_executable
+├── pdf.py             # _extract_pdf_text (pdfminer.six, page range, scanned-PDF warning)
 ├── savings.py         # _log_savings, _print_savings_report (JSONL at ~/.local/share/fetch-mcp/)
 └── _resolve.py        # _resolve_json_input (handles file paths and JSON wrappers)
 
@@ -77,6 +79,18 @@ scripts/benchmark.py   # dev-only token benchmark (not in pytest suite)
 ### SSL and lazy imports (`fetch_mcp/http.py`)
 
 `_get_ssl_ctx()` lazily initializes a `truststore.SSLContext` (system cert store — fixes macOS SSL errors). `httpx`, `playwright`, `ddgs`, and `html_to_markdown` imports are deferred in `cli.py` so the `optimize` subcommand doesn't load the full networking stack.
+
+### In-process cache (`fetch_mcp/cache.py`)
+
+`_Cache` stores processed responses keyed by SHA-256(url + sorted headers + all output-affecting params). TTL-based lazy eviction; FIFO eviction if the store hits `_MAX_SIZE` (200) without enough expired entries. Module-level singleton `_response_cache` is shared by `smart_fetch` and `css_query`. Both tools expose `use_cache=True` and `ttl=1800` parameters.
+
+### Auth headers (`fetch_mcp/http.py` + `fetch_mcp/server.py`)
+
+`_fetch_raw` accepts `extra_headers: dict[str, str] | None`, merged per-request into the httpx client. `smart_fetch`, `browser_fetch`, and `pdf_fetch` all expose a `headers` parameter that threads through. For `browser_fetch`, headers are applied via `page.set_extra_http_headers`.
+
+### PDF extraction (`fetch_mcp/pdf.py`)
+
+`_extract_pdf_text(data, max_chars, pages)` uses `pdfminer.six` (required dep). Handles page ranges (`"1-5"`, `"3"`), returns a warning for scanned PDFs (no text layer), and page-counts lazily — only if extraction produces no text.
 
 ### Chrome detection (`fetch_mcp/http.py`)
 

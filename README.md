@@ -100,6 +100,9 @@ Fetches a URL and auto-detects the content type:
 | `max_depth` | int | `5` | Max JSON nesting depth before flattening to dot-notation |
 | `extract_metadata` | bool | `False` | Include YAML frontmatter with page metadata (HTML only) |
 | `max_chars` | int | `20000` | Maximum characters in output (1,000–100,000) |
+| `headers` | dict | `None` | Optional HTTP headers (e.g. `{"Authorization": "Bearer token"}`) |
+| `use_cache` | bool | `True` | Return cached response if available (TTL-scoped per URL + params) |
+| `ttl` | int | `1800` | Cache TTL in seconds (60–86400) |
 
 ### `browser_fetch`
 
@@ -116,6 +119,7 @@ Use this for pages that block simple HTTP clients or require JavaScript renderin
 | `headed` | bool | `False` | Open a visible browser window for manual CAPTCHA/login |
 | `extract_metadata` | bool | `False` | Include YAML frontmatter with page metadata |
 | `max_chars` | int | `20000` | Maximum characters in output (1,000–100,000) |
+| `headers` | dict | `None` | Optional HTTP headers injected into the browser context |
 
 ### `web_search`
 
@@ -136,11 +140,12 @@ Fetch a page and return only content matching a CSS selector. Use when you know 
 | `url` | str | *required* | URL to fetch |
 | `selector` | str | *required* | CSS selector (e.g. `#pricing-table`, `.product-card`, `article`) |
 | `max_chars` | int | `20000` | Maximum characters in output (1,000–100,000) |
+| `use_cache` | bool | `True` | Return cached response if available |
+| `ttl` | int | `1800` | Cache TTL in seconds (60–86400) |
 
 ### `pdf_fetch`
 
 Fetch a URL that serves a PDF and return its text as plain markdown. Falls back to HTML→markdown if the URL does not return a PDF.
-
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -200,7 +205,7 @@ uv run fetch-mcp browser_fetch https://example.com
 # Open a visible browser for manual CAPTCHA/login, then extract after waiting
 uv run fetch-mcp browser_fetch https://example.com --headed --wait-ms 30000
 
-# Fetch a PDF and extract its text (requires: uv add pdfminer.six)
+# Fetch a PDF and extract its text
 uv run fetch-mcp pdf_fetch https://example.com/paper.pdf
 
 # Extract specific pages from a PDF
@@ -413,4 +418,5 @@ Fetches real pages and API endpoints, counts tokens with `tiktoken` (cl100k_base
 | [jsonpath-ng](https://github.com/h2non/jsonpath-ng) | JSONPath query support |
 | [ddgs](https://github.com/deedy5/ddgs) | DuckDuckGo search (no API key) |
 | [truststore](https://github.com/sethmlarson/truststore) | System certificate store for SSL |
+| [pdfminer.six](https://github.com/pdfminer/pdfminer.six) | PDF text extraction for `pdf_fetch` |
 | [tiktoken](https://github.com/openai/tiktoken) | Token counting (dev only, for benchmark) |
