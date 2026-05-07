@@ -1,13 +1,13 @@
 ---
-name: request-mcp
-description: Use and maintain the request-mcp networking server. Applies when fetching URLs, optimizing JSON, using smart_fetch, browser_fetch, web_search, css_query, CLI commands, MCP tools, Playwright rendering, or handling HTTP-client-blocked pages and CAPTCHA.
+name: fetch-mcp
+description: Use and maintain the fetch-mcp networking server. Applies when fetching URLs, optimizing JSON, using smart_fetch, browser_fetch, web_search, css_query, CLI commands, MCP tools, Playwright rendering, or handling HTTP-client-blocked pages and CAPTCHA.
 ---
 
-# Request MCP
+# Fetch MCP
 
 ## When To Use
 
-Use this skill when the user wants to fetch web pages, search the web, reduce JSON/token size, debug request-mcp behavior, or choose between `smart_fetch`, `browser_fetch`, `css_query`, `web_search`, and `optimize_json`.
+Use this skill when the user wants to fetch web pages, search the web, reduce JSON/token size, debug fetch-mcp behavior, or choose between `smart_fetch`, `browser_fetch`, `css_query`, `web_search`, and `optimize_json`.
 
 ## Command Choices
 

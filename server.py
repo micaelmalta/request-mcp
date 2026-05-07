@@ -1,4 +1,4 @@
-"""request-mcp — The high-efficiency networking layer for LLMs.
+"""fetch-mcp — The high-efficiency networking layer for LLMs.
 
 Also usable as a CLI for hooking into other tool outputs:
     python server.py smart_fetch https://example.com
@@ -53,7 +53,7 @@ DEFAULT_MAX_CHARS = 20_000
 # --- Server ---
 
 mcp = FastMCP(
-    "request-mcp",
+    "fetch-mcp",
     instructions=(
         "High-efficiency networking tools for LLMs. "
         "Use smart_fetch to auto-optimize any URL (HTML or JSON). "
@@ -412,7 +412,7 @@ def _handle_error(e: Exception) -> str:
 
 _SAVINGS_LOG = Path(os.environ.get(
     "REQUEST_MCP_SAVINGS_LOG",
-    Path.home() / ".local" / "share" / "request-mcp" / "savings.jsonl",
+    Path.home() / ".local" / "share" / "fetch-mcp" / "savings.jsonl",
 ))
 
 
@@ -456,7 +456,7 @@ def _print_savings_report() -> None:
     total_saved = total_raw - total_opt
     total_pct = round(total_saved / total_raw * 100, 1) if total_raw else 0
 
-    print("request-mcp savings report")
+    print("fetch-mcp savings report")
     print(f"Log: {_SAVINGS_LOG}")
     print(f"Entries: {len(entries)}")
     print()
@@ -891,7 +891,7 @@ def _cli_optimize() -> None:
     import argparse
 
     parser = argparse.ArgumentParser(
-        prog="request-mcp optimize",
+        prog="fetch-mcp optimize",
         description="Optimize JSON from stdin to reduce LLM token usage.",
     )
     parser.add_argument(
@@ -937,7 +937,7 @@ def _cli_smart_fetch() -> None:
     import asyncio
 
     parser = argparse.ArgumentParser(
-        prog="request-mcp smart_fetch",
+        prog="fetch-mcp smart_fetch",
         description="Fetch a URL and auto-optimize HTML or JSON for LLM usage.",
     )
     parser.add_argument("url", help="URL to fetch")
@@ -978,7 +978,7 @@ def _cli_browser_fetch() -> None:
     import asyncio
 
     parser = argparse.ArgumentParser(
-        prog="request-mcp browser_fetch",
+        prog="fetch-mcp browser_fetch",
         description="Fetch a URL with Playwright/Chrome and return optimized markdown.",
     )
     parser.add_argument("url", help="URL to fetch")

@@ -1,5 +1,5 @@
 [project]
-name = "request-mcp"
+name = "fetch-mcp"
 version = "0.1.0"
 description = "The high-efficiency networking layer for LLMs. Reduce token consumption by 58%+ by cleaning web data before it hits your context window."
 readme = "README.md"
@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [project.scripts]
-request-mcp = "server:main"
+fetch-mcp = "server:main"
 
 [[tool.uv.index]]
 url = "https://pypi.org/simple"

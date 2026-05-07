@@ -1,4 +1,4 @@
-"""Benchmark: compare raw vs request-mcp optimized token usage for HTML and JSON."""
+"""Benchmark: compare raw vs fetch-mcp optimized token usage for HTML and JSON."""
 
 import asyncio
 import json
@@ -206,7 +206,7 @@ def print_cost_summary(total_saved: int) -> None:
 
 
 async def main() -> None:
-    print("request-mcp benchmark: Raw vs Optimized token usage\n")
+    print("fetch-mcp benchmark: Raw vs Optimized token usage\n")
 
     # HTML benchmarks
     html_results = []

@@ -1,5 +1,5 @@
 def main():
-    print("Hello from request-mcp!")
+    print("Hello from fetch-mcp!")
 
 
 if __name__ == "__main__":

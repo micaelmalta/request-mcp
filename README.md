@@ -8,7 +8,7 @@ No API keys required — search is powered by DuckDuckGo.
 
 When an LLM fetches a URL or calls an API, most of the response is noise — nav bars, scripts, tracking pixels, templated API URLs, null fields, repeated sub-objects. You pay for all of it in tokens, latency, and reduced reasoning room.
 
-Request MCP sits between your agent and the network. It strips the noise, returns only what matters, and lets the agent drill into specifics on demand.
+Fetch MCP sits between your agent and the network. It strips the noise, returns only what matters, and lets the agent drill into specifics on demand.
 
 ## How It Works
 
@@ -196,7 +196,7 @@ uv run python server.py report
 
 ### Savings Tracking
 
-Every call to `optimize_json`, `smart_fetch`, and the CLI logs the before/after character counts to `~/.local/share/request-mcp/savings.jsonl`. View the cumulative report:
+Every call to `optimize_json`, `smart_fetch`, and the CLI logs the before/after character counts to `~/.local/share/fetch-mcp/savings.jsonl`. View the cumulative report:
 
 ```bash
 uv run python server.py report
@@ -221,26 +221,26 @@ Override the log path with `REQUEST_MCP_SAVINGS_LOG=/custom/path.jsonl`.
 No local clone required — run directly from GitHub with [uv](https://docs.astral.sh/uv/):
 
 ```bash
-uvx --from git+https://github.com/micaelmalta/request-mcp.git request-mcp
+uvx --from git+https://github.com/micaelmalta/fetch-mcp.git fetch-mcp
 ```
 
 Or clone locally for development:
 
 ```bash
-git clone https://github.com/micaelmalta/request-mcp.git && cd request-mcp
+git clone https://github.com/micaelmalta/fetch-mcp.git && cd fetch-mcp
 uv sync
 ```
 
 Install as a Claude skill:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/micaelmalta/request-mcp/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/micaelmalta/fetch-mcp/main/install.sh | bash
 ```
 
 Install a different branch or tag:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/micaelmalta/request-mcp/main/install.sh | REQUEST_MCP_REF=your-branch-or-tag bash
+curl -fsSL https://raw.githubusercontent.com/micaelmalta/fetch-mcp/main/install.sh | REQUEST_MCP_REF=your-branch-or-tag bash
 ```
 
 ## Integration
@@ -250,7 +250,7 @@ curl -fsSL https://raw.githubusercontent.com/micaelmalta/request-mcp/main/instal
 **1. Add the MCP server:**
 
 ```bash
-claude mcp add request-mcp -- uvx --from git+https://github.com/micaelmalta/request-mcp.git request-mcp
+claude mcp add fetch-mcp -- uvx --from git+https://github.com/micaelmalta/fetch-mcp.git fetch-mcp
 ```
 
 **2. (Optional) Instruct the agent via `CLAUDE.md`:**
@@ -259,7 +259,7 @@ claude mcp add request-mcp -- uvx --from git+https://github.com/micaelmalta/requ
 ## JSON Optimization
 
 When any MCP tool (GitHub, Jira, Datadog, Confluence, etc.) returns a JSON response
-larger than ~50 lines, pass it through the `optimize_json` tool from request-mcp before
+larger than ~50 lines, pass it through the `optimize_json` tool from fetch-mcp before
 reasoning over it. You can pass raw JSON or a file path directly. Use jsonpath to drill
 into specifics rather than consuming the full payload.
 ```
@@ -277,7 +277,7 @@ Add to `~/.claude/settings.json` to automatically log MCP response sizes and rem
         "hooks": [
           {
             "type": "command",
-            "command": "jq -r '{tool: .tool_name, chars: (.tool_response | tostring | length)}' | jq -r '\"\\(.tool) \\(.chars)\"' | { read -r tool chars; mkdir -p ~/.local/share/request-mcp; echo \"{\\\"ts\\\":\\\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\\\",\\\"source\\\":\\\"hook:$tool\\\",\\\"raw_chars\\\":$chars,\\\"opt_chars\\\":$chars,\\\"saved_chars\\\":0,\\\"saved_pct\\\":0}\" >> ~/.local/share/request-mcp/savings.jsonl; echo \"{\\\"hookSpecificOutput\\\":{\\\"hookEventName\\\":\\\"PostToolUse\\\",\\\"additionalContext\\\":\\\"MCP response was ${chars} chars. Pipe it through optimize_json from request-mcp to reduce token usage. You can pass raw JSON or a file path directly.\\\"}}\"; }"
+            "command": "jq -r '{tool: .tool_name, chars: (.tool_response | tostring | length)}' | jq -r '\"\\(.tool) \\(.chars)\"' | { read -r tool chars; mkdir -p ~/.local/share/fetch-mcp; echo \"{\\\"ts\\\":\\\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\\\",\\\"source\\\":\\\"hook:$tool\\\",\\\"raw_chars\\\":$chars,\\\"opt_chars\\\":$chars,\\\"saved_chars\\\":0,\\\"saved_pct\\\":0}\" >> ~/.local/share/fetch-mcp/savings.jsonl; echo \"{\\\"hookSpecificOutput\\\":{\\\"hookEventName\\\":\\\"PostToolUse\\\",\\\"additionalContext\\\":\\\"MCP response was ${chars} chars. Pipe it through optimize_json from fetch-mcp to reduce token usage. You can pass raw JSON or a file path directly.\\\"}}\"; }"
           }
         ]
       }
@@ -295,10 +295,10 @@ Add or remove MCP prefixes from the matcher as needed.
 ```json
 {
   "mcpServers": {
-    "request-mcp": {
+    "fetch-mcp": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["--from", "git+https://github.com/micaelmalta/request-mcp.git", "request-mcp"]
+      "args": ["--from", "git+https://github.com/micaelmalta/fetch-mcp.git", "fetch-mcp"]
     }
   }
 }
@@ -308,7 +308,7 @@ Add or remove MCP prefixes from the matcher as needed.
 
 ```
 When any MCP tool returns a large JSON response (>50 lines), pass it through the
-optimize_json tool from request-mcp before reasoning. You can pass raw JSON or a
+optimize_json tool from fetch-mcp before reasoning. You can pass raw JSON or a
 file path directly. Use the jsonpath parameter to drill into specific fields.
 ```
 
@@ -319,10 +319,10 @@ file path directly. Use the jsonpath parameter to drill into specific fields.
 ```json
 {
   "mcpServers": {
-    "request-mcp": {
+    "fetch-mcp": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["--from", "git+https://github.com/micaelmalta/request-mcp.git", "request-mcp"]
+      "args": ["--from", "git+https://github.com/micaelmalta/fetch-mcp.git", "fetch-mcp"]
     }
   }
 }
@@ -334,7 +334,7 @@ file path directly. Use the jsonpath parameter to drill into specific fields.
 ## JSON Optimization
 
 When any MCP tool (GitHub, Jira, Datadog, Confluence, etc.) returns a JSON response
-larger than ~50 lines, pass it through the `optimize_json` tool from request-mcp before
+larger than ~50 lines, pass it through the `optimize_json` tool from fetch-mcp before
 reasoning over it. You can pass raw JSON or a file path directly. Use jsonpath to drill
 into specifics rather than consuming the full payload.
 ```
@@ -346,9 +346,9 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "request-mcp": {
+    "fetch-mcp": {
       "command": "uvx",
-      "args": ["--from", "git+https://github.com/micaelmalta/request-mcp.git", "request-mcp"]
+      "args": ["--from", "git+https://github.com/micaelmalta/fetch-mcp.git", "fetch-mcp"]
     }
   }
 }

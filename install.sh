@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_URL="${REQUEST_MCP_REPO_URL:-https://github.com/micaelmalta/request-mcp}"
+REPO_URL="${REQUEST_MCP_REPO_URL:-https://github.com/micaelmalta/fetch-mcp}"
 REF="${REQUEST_MCP_REF:-main}"
 SKILLS_DIR="${CLAUDE_SKILLS_DIR:-$HOME/.claude/skills}"
-SKILL_NAME="${REQUEST_MCP_SKILL_NAME:-request-mcp}"
+SKILL_NAME="${REQUEST_MCP_SKILL_NAME:-fetch-mcp}"
 DEST_DIR="$SKILLS_DIR/$SKILL_NAME"
 ARCHIVE_URL="${REPO_URL%/}/archive/${REF}.tar.gz"
 
 TMP_DIR="$(mktemp -d)"
-ARCHIVE_PATH="$TMP_DIR/request-mcp.tar.gz"
+ARCHIVE_PATH="$TMP_DIR/fetch-mcp.tar.gz"
 EXTRACT_DIR="$TMP_DIR/extract"
 
 cleanup() {
@@ -28,7 +28,7 @@ download() {
   fi
 }
 
-echo "Installing request-mcp skill from $REPO_URL@$REF"
+echo "Installing fetch-mcp skill from $REPO_URL@$REF"
 mkdir -p "$SKILLS_DIR"
 mkdir -p "$EXTRACT_DIR"
 download
@@ -52,5 +52,5 @@ fi
 rm -rf "$DEST_DIR"
 mv "$SRC_DIR" "$DEST_DIR"
 
-echo "Installed request-mcp skill to $DEST_DIR"
+echo "Installed fetch-mcp skill to $DEST_DIR"
 echo "To install another branch or tag, run: REQUEST_MCP_REF=your-branch-or-tag ./install.sh"
