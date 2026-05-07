@@ -55,10 +55,10 @@ def _find_chrome_executable() -> str | None:
     return next((path for path in candidates if path and Path(path).exists()), None)
 
 
-async def _fetch_raw(url: str):
+async def _fetch_raw(url: str, extra_headers: dict[str, str] | None = None):
     """Fetch a URL and return the raw response."""
     async with _build_client() as client:
-        response = await client.get(url)
+        response = await client.get(url, headers=extra_headers or {})
         response.raise_for_status()
         return response
 
