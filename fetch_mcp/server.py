@@ -371,17 +371,16 @@ async def pdf_fetch(
     """
     try:
         response = await _fetch_raw(url, extra_headers=headers)
+        content_type = response.headers.get("content-type", "")
+        if "pdf" not in content_type:
+            html_result = _html_to_markdown(response.text, max_chars=max_chars)
+            return f"Note: URL did not return a PDF. Returning HTML content instead.\n\n{html_result}"
+
+        result = _extract_pdf_text(response.content, max_chars=max_chars, pages=pages)
+        _log_savings(len(response.content), len(result), source=f"pdf_fetch:{url[:60]}")
+        return result
     except Exception as e:
         return _handle_error(e)
-
-    content_type = response.headers.get("content-type", "")
-    if "pdf" not in content_type:
-        html_result = _html_to_markdown(response.text, max_chars=max_chars)
-        return f"Note: URL did not return a PDF. Returning HTML content instead.\n\n{html_result}"
-
-    result = _extract_pdf_text(response.content, max_chars=max_chars, pages=pages)
-    _log_savings(len(response.content), len(result), source=f"pdf_fetch:{url[:60]}")
-    return result
 
 
 @mcp.tool(

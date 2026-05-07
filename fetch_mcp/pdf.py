@@ -20,19 +20,17 @@ def _extract_pdf_text(data: bytes, max_chars: int = 20_000, pages: str | None = 
     # Parse page range if provided (e.g. "1-5" or "3")
     page_numbers: set[int] | None = None
     if pages:
-        page_numbers = set()
-        for part in pages.split(","):
-            part = part.strip()
-            if "-" in part:
-                start, _, end = part.partition("-")
-                page_numbers.update(range(int(start) - 1, int(end)))
-            else:
-                page_numbers.add(int(part) - 1)
-
-    # Count pages to report in warning
-    parser = PDFParser(io.BytesIO(data))
-    doc = PDFDocument(parser)
-    page_count = sum(1 for _ in PDFPage.create_pages(doc))
+        try:
+            page_numbers = set()
+            for part in pages.split(","):
+                part = part.strip()
+                if "-" in part:
+                    start, _, end = part.partition("-")
+                    page_numbers.update(range(int(start) - 1, int(end)))
+                else:
+                    page_numbers.add(int(part) - 1)
+        except ValueError:
+            return "Error: Invalid page range format. Use e.g. '1-5' or '3'."
 
     # Extract text
     kwargs: dict = {}
@@ -42,6 +40,10 @@ def _extract_pdf_text(data: bytes, max_chars: int = 20_000, pages: str | None = 
 
     text = text.strip()
     if not text:
+        # Count pages only when needed for the warning message
+        parser = PDFParser(io.BytesIO(data))
+        doc = PDFDocument(parser)
+        page_count = sum(1 for _ in PDFPage.create_pages(doc))
         return (
             f"Warning: No extractable text found in PDF ({page_count} pages). "
             "May be scanned. Consider using browser_fetch with OCR if available."
