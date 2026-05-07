@@ -68,6 +68,10 @@ async def smart_fetch(
     ] = DEFAULT_MAX_CHARS,
     use_cache: Annotated[bool, Field(description="Return cached response if available (default True)")] = True,
     ttl: Annotated[int, Field(description="Cache TTL in seconds (default 1800)", ge=60, le=86400)] = 1800,
+    headers: Annotated[
+        dict[str, str] | None,
+        Field(description="Optional HTTP headers (e.g. {'Authorization': 'Bearer token'})"),
+    ] = None,
 ) -> str:
     """Fetch any URL and auto-optimize based on content type.
 
@@ -78,6 +82,7 @@ async def smart_fetch(
     """
     cache_key = _response_cache.make_key(
         url,
+        headers=headers,
         jsonpath=jsonpath,
         max_depth=max_depth,
         extract_metadata=extract_metadata,
@@ -94,7 +99,7 @@ async def smart_fetch(
             pass
 
     try:
-        response = await _fetch_raw(url)
+        response = await _fetch_raw(url, extra_headers=headers)
 
         if _is_json_content(response):
             try:
