@@ -275,6 +275,10 @@ async def browser_fetch(
     max_chars: Annotated[
         int, Field(description="Maximum characters in output", ge=1000, le=100_000)
     ] = DEFAULT_MAX_CHARS,
+    headers: Annotated[
+        dict[str, str] | None,
+        Field(description="Optional HTTP headers injected into the browser context"),
+    ] = None,
 ) -> str:
     """Fetch a JavaScript-rendered page with Playwright and return markdown."""
     try:
@@ -299,6 +303,8 @@ async def browser_fetch(
                 user_agent=USER_AGENT,
                 viewport={"width": 1280, "height": 900},
             )
+            if headers:
+                await page.set_extra_http_headers(headers)
 
             response = await page.goto(
                 url,
