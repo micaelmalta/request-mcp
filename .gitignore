@@ -12,3 +12,4 @@ wheels/
 .claude
 .cursor
 .vscode
+.pytest_cache

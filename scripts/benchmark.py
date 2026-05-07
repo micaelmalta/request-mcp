@@ -2,16 +2,22 @@
 
 import asyncio
 import json
+import sys
 import time
+from pathlib import Path
+
+# Allow running as `python scripts/benchmark.py` from the project root
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+import ssl
 
 import httpx
 import tiktoken
-import ssl
-
 import truststore
-from server import (
+
+from fetch_mcp.html import _html_to_markdown
+from fetch_mcp.json_optimizer import (
     _build_schema_summary,
-    _html_to_markdown,
     _prune_json,
     _should_use_schema_mode,
 )
@@ -35,13 +41,17 @@ HTML_URLS = [
 
 JSON_URLS = [
     ("GitHub API — repos", "https://api.github.com/orgs/python/repos?per_page=10"),
+    ("GitHub API — issues", "https://api.github.com/repos/python/cpython/issues?per_page=10"),
     ("JSONPlaceholder — posts", "https://jsonplaceholder.typicode.com/posts"),
     ("JSONPlaceholder — users", "https://jsonplaceholder.typicode.com/users"),
     ("JSONPlaceholder — comments", "https://jsonplaceholder.typicode.com/comments?postId=1"),
+    ("JSONPlaceholder — todos", "https://jsonplaceholder.typicode.com/todos"),
+    ("npm — typescript", "https://registry.npmjs.org/typescript/latest"),
+    ("OpenLibrary — search", "https://openlibrary.org/search.json?q=python+programming&limit=10"),
 ]
 
 ssl_ctx = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-enc = tiktoken.get_encoding("cl100k_base")  # GPT-4 / Claude approximation
+enc = tiktoken.get_encoding("cl100k_base")
 
 
 def count_tokens(text: str) -> int:
@@ -71,7 +81,6 @@ async def benchmark_html(name: str, url: str) -> dict | None:
         return None
 
     t0 = time.perf_counter()
-    # html-to-markdown 3.x returns a dict; _html_to_markdown matches server.py / smart_fetch.
     md = _html_to_markdown(html, max_chars=10_000_000)
     convert_ms = (time.perf_counter() - t0) * 1000
 
@@ -113,8 +122,7 @@ async def benchmark_json(name: str, url: str) -> dict | None:
     saved = raw_tokens - opt_tokens
     pct = (saved / raw_tokens * 100) if raw_tokens else 0
 
-    # Also compute schema-mode savings
-    schema_tokens = opt_tokens  # fallback if schema mode doesn't apply
+    schema_tokens = opt_tokens
     if _should_use_schema_mode(data):
         summary = _build_schema_summary(data, max_depth=5)
         schema_text = json.dumps(summary, indent=2, ensure_ascii=False, default=str)
@@ -135,12 +143,10 @@ async def benchmark_json(name: str, url: str) -> dict | None:
 
 
 def print_html_table(rows: list[dict]) -> int:
-    header = (
-        f"{'Page':<30} {'Raw tokens':>12} {'Opt tokens':>12} {'Saved':>12} {'%':>7} {'Time':>8}"
-    )
+    header = f"{'Page':<30} {'Raw tokens':>12} {'Opt tokens':>12} {'Saved':>12} {'%':>7} {'Time':>8}"
     sep = "-" * len(header)
     print(f"\n{'=' * len(header)}")
-    print(f"  HTML → Markdown")
+    print("  HTML → Markdown")
     print(f"{'=' * len(header)}")
     print(f"{header}\n{sep}")
 
@@ -157,21 +163,16 @@ def print_html_table(rows: list[dict]) -> int:
     total_saved = total_raw - total_opt
     total_pct = (total_saved / total_raw * 100) if total_raw else 0
     print(sep)
-    print(
-        f"{'TOTAL':<30} {total_raw:>12,} {total_opt:>12,} "
-        f"{total_saved:>12,} {total_pct:>6.1f}%"
-    )
+    print(f"{'TOTAL':<30} {total_raw:>12,} {total_opt:>12,} {total_saved:>12,} {total_pct:>6.1f}%")
     print(sep)
     return total_saved
 
 
 def print_json_table(rows: list[dict]) -> int:
-    header = (
-        f"{'Endpoint':<30} {'Raw tokens':>12} {'Pruned':>12} {'Schema':>12} {'Best %':>8}"
-    )
+    header = f"{'Endpoint':<30} {'Raw tokens':>12} {'Pruned':>12} {'Schema':>12} {'Best %':>8}"
     sep = "-" * len(header)
     print(f"\n{'=' * len(header)}")
-    print(f"  JSON Optimization (Pruned vs Schema-first)")
+    print("  JSON Optimization (Pruned vs Schema-first)")
     print(f"{'=' * len(header)}")
     print(f"{header}\n{sep}")
 
@@ -185,16 +186,12 @@ def print_json_table(rows: list[dict]) -> int:
         total_best += best
         pct = ((raw - best) / raw * 100) if raw else 0
         schema_str = f"{schema:>12,}" if schema != pruned else f"{'n/a':>12}"
-        print(
-            f"{r['name']:<30} {raw:>12,} {pruned:>12,} {schema_str} {pct:>7.1f}%"
-        )
+        print(f"{r['name']:<30} {raw:>12,} {pruned:>12,} {schema_str} {pct:>7.1f}%")
 
     total_saved = total_raw - total_best
     total_pct = (total_saved / total_raw * 100) if total_raw else 0
     print(sep)
-    print(
-        f"{'TOTAL':<30} {total_raw:>12,} {'':>12} {'':>12} {total_pct:>7.1f}%"
-    )
+    print(f"{'TOTAL':<30} {total_raw:>12,} {'':>12} {'':>12} {total_pct:>7.1f}%")
     print(f"  Best-case tokens: {total_best:,} (saved {total_saved:,})")
     print(sep)
     return total_saved
@@ -208,7 +205,6 @@ def print_cost_summary(total_saved: int) -> None:
 async def main() -> None:
     print("fetch-mcp benchmark: Raw vs Optimized token usage\n")
 
-    # HTML benchmarks
     html_results = []
     for name, url in HTML_URLS:
         print(f"  Fetching {name}...")
@@ -216,7 +212,6 @@ async def main() -> None:
         if r:
             html_results.append(r)
 
-    # JSON benchmarks
     json_results = []
     for name, url in JSON_URLS:
         print(f"  Fetching {name}...")

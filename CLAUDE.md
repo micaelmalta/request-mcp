@@ -6,73 +6,87 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `fetch-mcp` is a FastMCP server that acts as a high-efficiency networking layer for LLMs. It reduces token consumption by 58–87% by cleaning HTML and JSON before it reaches the context window. The server exposes five tools: `smart_fetch`, `browser_fetch`, `web_search`, `css_query`, and `optimize_json`.
 
-The entire server lives in a single file: `server.py`. There is no framework beyond FastMCP — all tools, utilities, and CLI entry points are in that one file.
-
 ## Commands
 
 ```bash
 # Install dependencies
-uv sync
+uv sync --group dev
 
 # Run tests
-uv run pytest
+uv run python -m pytest tests/ -v
 
 # Run a single test
-uv run pytest tests/test_json_optimizer.py::test_prune_removes_null_and_empty
+uv run python -m pytest tests/test_json_optimizer.py::test_prune_removes_null_and_empty
+
+# Lint and format
+uv run ruff check .
+uv run ruff format .
 
 # Start the MCP server (stdio mode)
+uv run fetch-mcp
+# or via shim:
 uv run python server.py
 
 # CLI — fetch a URL
-uv run python server.py smart_fetch https://example.com
-uv run python server.py smart_fetch https://api.github.com/orgs/python/repos --jsonpath '$[*].name'
+uv run fetch-mcp smart_fetch https://example.com
+uv run fetch-mcp smart_fetch https://api.github.com/orgs/python/repos --jsonpath '$[*].name'
 
 # CLI — browser fetch (Playwright)
-uv run python server.py browser_fetch https://example.com
+uv run fetch-mcp browser_fetch https://example.com
 
 # CLI — optimize JSON from stdin
-curl -s https://api.github.com/orgs/python/repos | uv run python server.py optimize
+curl -s https://api.github.com/orgs/python/repos | uv run fetch-mcp optimize
 
 # View savings report
-uv run python server.py report
+uv run fetch-mcp report
 
 # Run benchmark (requires tiktoken, hits real URLs)
-uv run python benchmark.py
+uv run python scripts/benchmark.py
 
 # Inspect MCP server in browser (dev)
-uv run mcp dev server.py
+uv run mcp dev fetch_mcp/server.py
 ```
 
 ## Architecture
 
-### `server.py` — the entire server
+### Package layout
 
-All logic lives here. Key sections:
+```
+fetch_mcp/
+├── __init__.py        # re-exports main() for the entry point
+├── server.py          # FastMCP instance (mcp) + all five @mcp.tool() registrations
+├── cli.py             # CLI dispatch: main(), _cli_optimize/smart_fetch/browser_fetch
+├── json_optimizer.py  # _prune_json pipeline, schema-first mode (_build_schema_summary)
+├── html.py            # _html_to_markdown (wraps html-to-markdown Rust lib)
+├── http.py            # _build_client, _fetch_raw, _find_chrome_executable, _get_ssl_ctx
+├── savings.py         # _log_savings, _print_savings_report (JSONL at ~/.local/share/fetch-mcp/)
+└── _resolve.py        # _resolve_json_input (handles file paths and JSON wrappers)
 
-- **Shared utilities** (`_build_client`, `_html_to_markdown`, `_find_chrome_executable`) — HTTP client setup, HTML→Markdown conversion via `html-to-markdown` (Rust-based).
-- **JSON pruning pipeline** (`_prune_json`, `_clean`, `_dedup_array`, `_flatten_dict`) — strips URL templates, removes nulls/empties, deduplicates repeated sub-objects across arrays, and flattens deep nesting to dot-notation keys.
-- **Schema-first mode** (`_should_use_schema_mode`, `_build_schema_summary`) — for arrays of 5+ uniform dicts, returns `_schema` + 2 `_sample` items instead of all data. The agent then calls with `jsonpath` to drill in. Threshold: `_SCHEMA_THRESHOLD = 5`.
-- **Savings logger** (`_log_savings`, `_print_savings_report`) — every tool call appends before/after char counts to `~/.local/share/fetch-mcp/savings.jsonl`. Override path with `REQUEST_MCP_SAVINGS_LOG`.
-- **MCP tools** (`smart_fetch`, `browser_fetch`, `web_search`, `css_query`, `optimize_json`) — registered with `@mcp.tool()` using Pydantic `Field` annotations for parameter descriptions.
-- **CLI entry points** (`_cli_optimize`, `_cli_smart_fetch`, `_cli_browser_fetch`) — `main()` dispatches based on `sys.argv[1]`; no subcommand → `mcp.run()` for stdio server mode.
+server.py              # thin shim: imports main() from fetch_mcp.cli
+scripts/benchmark.py   # dev-only token benchmark (not in pytest suite)
+```
 
-### `optimize_json` input resolution
+### JSON pruning pipeline (`fetch_mcp/json_optimizer.py`)
 
-`_resolve_json_input` handles four input formats: raw JSON string, direct file path, `{"file": "/path"}` JSON wrapper, and `{"result": "..."}` JSON wrapper. This handles the case where Claude's tool response overflow is saved to a temp file.
+`_prune_json` runs five steps in order: JSONPath extraction → URL template stripping → null/empty removal → sub-object deduplication (`_dedup_array`) → deep nesting flattening (`_flatten_dict`). Schema-first mode (`_should_use_schema_mode`) triggers for arrays of 5+ uniform dicts, returning `_schema` + 2 `_sample` items instead of all data. Threshold: `_SCHEMA_THRESHOLD = 5`.
 
-### `browser_fetch` Chrome detection
+### `optimize_json` input resolution (`fetch_mcp/_resolve.py`)
 
-`_find_chrome_executable` walks a priority list of OS-specific paths before falling back to Playwright's bundled Chromium. Override with `REQUEST_MCP_CHROME_PATH`.
+`_resolve_json_input` handles four formats: raw JSON string, direct file path, `{"file": "/path"}` wrapper, and `{"result": "..."}` wrapper — to handle Claude's tool response overflow files.
 
-### SSL
+### SSL and lazy imports (`fetch_mcp/http.py`)
 
-`_get_ssl_ctx()` lazily initializes a `truststore.SSLContext` to use the system certificate store — fixes macOS SSL errors with Homebrew Python. `httpx` imports are deferred so `python server.py optimize` (JSON-only CLI path) doesn't require the full dependency set.
+`_get_ssl_ctx()` lazily initializes a `truststore.SSLContext` (system cert store — fixes macOS SSL errors). `httpx`, `playwright`, `ddgs`, and `html_to_markdown` imports are deferred in `cli.py` so the `optimize` subcommand doesn't load the full networking stack.
+
+### Chrome detection (`fetch_mcp/http.py`)
+
+`_find_chrome_executable` walks a priority list of OS-specific paths. Override with `REQUEST_MCP_CHROME_PATH`.
 
 ## Testing
 
-Tests are in `tests/test_json_optimizer.py` and cover `_prune_json`, `_should_use_schema_mode`, `_build_schema_summary`, and JSONPath extraction. `benchmark.py` is a manual benchmark only (hits real URLs, requires `tiktoken`).
+Tests are in `tests/test_json_optimizer.py`. Run with `uv run python -m pytest` (not `uv run pytest` — the latter can resolve to the wrong binary on some systems).
 
-The `evals/` directory contains eval harness (`run_evals.py`) and fixtures for end-to-end eval runs — not part of the pytest suite.
+`scripts/benchmark.py` is a manual benchmark that hits real URLs; `evals/run_evals.py` runs against static fixtures in `evals/fixtures/json/`. Neither is part of the pytest suite.
 
 ## Skill Installation
 

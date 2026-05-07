@@ -1,5 +1,6 @@
 import pytest
-from server import _prune_json, _should_use_schema_mode, _build_schema_summary
+
+from fetch_mcp.json_optimizer import _build_schema_summary, _prune_json, _should_use_schema_mode
 
 
 def test_prune_removes_null_and_empty():
