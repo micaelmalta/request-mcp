@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
+import time
 from typing import Annotated
 
 from mcp.server.fastmcp import FastMCP
 from pydantic import Field
 
 from fetch_mcp._resolve import _resolve_json_input
+from fetch_mcp.cache import _CacheEntry, _response_cache
 from fetch_mcp.html import _html_to_markdown
 from fetch_mcp.http import (
     DEFAULT_MAX_CHARS,
@@ -64,6 +66,8 @@ async def smart_fetch(
     max_chars: Annotated[
         int, Field(description="Maximum characters in output", ge=1000, le=100_000)
     ] = DEFAULT_MAX_CHARS,
+    use_cache: Annotated[bool, Field(description="Return cached response if available (default True)")] = True,
+    ttl: Annotated[int, Field(description="Cache TTL in seconds (default 1800)", ge=60, le=86400)] = 1800,
 ) -> str:
     """Fetch any URL and auto-optimize based on content type.
 
@@ -72,6 +76,23 @@ async def smart_fetch(
     parameter to drill into specific items or fields on follow-up calls.
     Dramatically reduces token usage compared to raw fetching.
     """
+    cache_key = _response_cache.make_key(
+        url,
+        jsonpath=jsonpath,
+        max_depth=max_depth,
+        extract_metadata=extract_metadata,
+        max_chars=max_chars,
+    )
+
+    if use_cache:
+        try:
+            cached = _response_cache.get(cache_key)
+            if cached is not None:
+                _log_savings(cached.raw_chars, len(cached.content), source=f"cache_hit:{url[:60]}")
+                return cached.content
+        except Exception:
+            pass
+
     try:
         response = await _fetch_raw(url)
 
@@ -89,6 +110,11 @@ async def smart_fetch(
                 if len(result) > max_chars:
                     result = result[:max_chars] + "\n\n... [truncated]"
                 _log_savings(raw_chars, len(result), source=f"smart_fetch:{url[:60]}")
+                if use_cache:
+                    try:
+                        _response_cache.set(cache_key, _CacheEntry(result, raw_chars, time.monotonic() + ttl))
+                    except Exception:
+                        pass
                 return result
 
             pruned = _prune_json(data, jsonpath=jsonpath, max_depth=max_depth)
@@ -96,6 +122,11 @@ async def smart_fetch(
             if len(result) > max_chars:
                 result = result[:max_chars] + "\n\n... [truncated]"
             _log_savings(raw_chars, len(result), source=f"smart_fetch:{url[:60]}")
+            if use_cache:
+                try:
+                    _response_cache.set(cache_key, _CacheEntry(result, raw_chars, time.monotonic() + ttl))
+                except Exception:
+                    pass
             return result
 
         raw_chars = len(response.text)
@@ -105,6 +136,11 @@ async def smart_fetch(
             extract_metadata=extract_metadata,
         )
         _log_savings(raw_chars, len(result), source=f"smart_fetch:{url[:60]}")
+        if use_cache:
+            try:
+                _response_cache.set(cache_key, _CacheEntry(result, raw_chars, time.monotonic() + ttl))
+            except Exception:
+                pass
         return result
 
     except Exception as e:
@@ -162,8 +198,21 @@ async def css_query(
     max_chars: Annotated[
         int, Field(description="Maximum characters in output", ge=1000, le=100_000)
     ] = DEFAULT_MAX_CHARS,
+    use_cache: Annotated[bool, Field(description="Return cached response if available (default True)")] = True,
+    ttl: Annotated[int, Field(description="Cache TTL in seconds (default 1800)", ge=60, le=86400)] = 1800,
 ) -> str:
     """Fetch a page and return only the content matching a CSS selector."""
+    cache_key = _response_cache.make_key(url, selector=selector, max_chars=max_chars)
+
+    if use_cache:
+        try:
+            cached = _response_cache.get(cache_key)
+            if cached is not None:
+                _log_savings(cached.raw_chars, len(cached.content), source=f"cache_hit:{url[:60]}")
+                return cached.content
+        except Exception:
+            pass
+
     try:
         from bs4 import BeautifulSoup
 
@@ -182,6 +231,15 @@ async def css_query(
         result = "\n\n---\n\n".join(parts)
         if len(result) > max_chars:
             result = result[:max_chars] + "\n\n[... truncated]"
+
+        if use_cache:
+            try:
+                _response_cache.set(
+                    cache_key,
+                    _CacheEntry(result, len(response.text), time.monotonic() + ttl),
+                )
+            except Exception:
+                pass
         return result
 
     except Exception as e:

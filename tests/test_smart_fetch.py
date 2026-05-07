@@ -61,6 +61,32 @@ async def test_smart_fetch_http_error_returns_error_string(httpx_mock):
     assert "404" in result
 
 
+async def test_smart_fetch_cache_hit_skips_network(httpx_mock):
+    # Register exactly one response — second call must hit cache, not network
+    httpx_mock.add_response(
+        url="https://cache.example.com/page",
+        html="<p>cached</p>",
+        is_reusable=False,
+    )
+    result1 = await smart_fetch("https://cache.example.com/page", use_cache=True)
+    # Second call with same URL — httpx_mock would raise if a second request fired
+    result2 = await smart_fetch("https://cache.example.com/page", use_cache=True)
+    assert result1 == result2
+    assert "cached" in result1
+
+
+async def test_smart_fetch_use_cache_false_bypasses_cache(httpx_mock):
+    httpx_mock.add_response(
+        url="https://nocache.example.com/page",
+        html="<p>fresh</p>",
+        is_reusable=True,
+    )
+    await smart_fetch("https://nocache.example.com/page", use_cache=False)
+    # Second call with use_cache=False must hit network again
+    result = await smart_fetch("https://nocache.example.com/page", use_cache=False)
+    assert "fresh" in result
+
+
 async def test_smart_fetch_logs_savings(httpx_mock, tmp_path, monkeypatch):
     log_path = tmp_path / "savings.jsonl"
     monkeypatch.setenv("REQUEST_MCP_SAVINGS_LOG", str(log_path))
