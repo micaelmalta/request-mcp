@@ -19,8 +19,8 @@ class _Cache:
     def __init__(self) -> None:
         self._store: dict[str, _CacheEntry] = {}
 
-    def make_key(self, url: str, headers: dict[str, str] | None = None) -> str:
-        payload = url + json.dumps(sorted((headers or {}).items()))
+    def make_key(self, url: str, headers: dict[str, str] | None = None, **kwargs: object) -> str:
+        payload = url + json.dumps({"headers": sorted((headers or {}).items()), **kwargs}, sort_keys=True, default=str)
         return hashlib.sha256(payload.encode()).hexdigest()
 
     def get(self, key: str) -> _CacheEntry | None:
@@ -36,6 +36,8 @@ class _Cache:
         if len(self._store) >= _MAX_SIZE:
             now = time.monotonic()
             self._store = {k: v for k, v in self._store.items() if v.expires_at > now}
+            if len(self._store) >= _MAX_SIZE:
+                del self._store[next(iter(self._store))]
         self._store[key] = entry
 
 

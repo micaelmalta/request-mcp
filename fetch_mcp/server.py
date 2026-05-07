@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 from typing import Annotated
 
 from mcp.server.fastmcp import FastMCP
@@ -75,9 +76,13 @@ async def smart_fetch(
     parameter to drill into specific items or fields on follow-up calls.
     Dramatically reduces token usage compared to raw fetching.
     """
-    import time
-
-    cache_key = _response_cache.make_key(url)
+    cache_key = _response_cache.make_key(
+        url,
+        jsonpath=jsonpath,
+        max_depth=max_depth,
+        extract_metadata=extract_metadata,
+        max_chars=max_chars,
+    )
 
     if use_cache:
         try:
@@ -197,9 +202,7 @@ async def css_query(
     ttl: Annotated[int, Field(description="Cache TTL in seconds (default 1800)", ge=60, le=86400)] = 1800,
 ) -> str:
     """Fetch a page and return only the content matching a CSS selector."""
-    import time
-
-    cache_key = _response_cache.make_key(url + "|" + selector)
+    cache_key = _response_cache.make_key(url, selector=selector, max_chars=max_chars)
 
     if use_cache:
         try:
