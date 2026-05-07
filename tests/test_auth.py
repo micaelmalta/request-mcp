@@ -2,10 +2,6 @@
 
 from __future__ import annotations
 
-import json
-
-import pytest
-
 from fetch_mcp.http import _fetch_raw
 from fetch_mcp.server import smart_fetch
 
