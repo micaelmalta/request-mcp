@@ -60,7 +60,9 @@ def test_handle_error_generic():
 
 def test_find_chrome_returns_none_when_no_chrome(monkeypatch):
     monkeypatch.delenv("REQUEST_MCP_CHROME_PATH", raising=False)
-    monkeypatch.setattr(Path, "exists", lambda self: False)
+    mock_path = MagicMock(spec=Path)
+    mock_path.return_value.exists.return_value = False
+    monkeypatch.setattr("fetch_mcp.http.Path", mock_path)
     assert _find_chrome_executable() is None
 
 

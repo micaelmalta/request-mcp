@@ -35,8 +35,8 @@ def test_metadata_extraction_returns_frontmatter():
     # with metadata: frontmatter block should appear (starts with ---)
     # without metadata: frontmatter is stripped
     # We can't guarantee the library emits frontmatter, but if it does, strip should remove it.
-    if "---" in result_with:
-        assert "---" not in result_without or result_without.index("---") > result_with.index("---")
+    if result_with.startswith("---\n"):
+        assert not result_without.startswith("---\n")
 
 
 def test_empty_html_returns_string():

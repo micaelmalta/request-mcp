@@ -9,8 +9,8 @@ import sys
 from fetch_mcp.cli import main
 
 
-def _run_main(argv: list[str], stdin_text: str = "") -> tuple[str, str]:
-    """Call main() with patched sys.argv and sys.stdin; return (stdout, stderr)."""
+def _run_main(argv: list[str], stdin_text: str = "") -> None:
+    """Call main() with patched sys.argv and sys.stdin."""
     old_argv = sys.argv
     old_stdin = sys.stdin
     sys.argv = ["fetch-mcp"] + argv
