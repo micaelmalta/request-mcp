@@ -1,6 +1,6 @@
 # Fetch MCP Server
 
-The high-efficiency networking layer for LLMs. Reduce token consumption by **58–87%** by cleaning web and API data before it hits your context window.
+The high-efficiency networking layer for LLMs. Reduce token consumption by **73–87%** by cleaning web and API data before it hits your context window.
 
 No API keys required — search is powered by DuckDuckGo.
 
@@ -24,7 +24,7 @@ Agent calls smart_fetch(url)
 ┌──────────────┐  ┌──────────────────────┐
 │ → Markdown   │  │ Strip URL templates  │
 │ Strip noise  │  │ Remove nulls/empties │
-│ 58% savings  │  │ Dedup sub-objects    │
+│ 73% savings  │  │ Dedup sub-objects    │
 └──────────────┘  │ Schema-first mode    │
                   │ 87% savings          │
                   └──────────────────────┘
@@ -42,31 +42,37 @@ For JSON, the default behavior is **schema-first**: large arrays return the stru
 
 ## Token Savings
 
-Run `uv run python benchmark.py` to reproduce. Results from real endpoints:
+Run `uv run python scripts/benchmark.py` to reproduce. Results from real endpoints:
 
 ### HTML → Markdown
 
 | Page | Raw tokens | Optimized | Saved |
 |------|-----------|-----------|-------|
-| GitHub Blog | 90,829 | 50,702 | 44% |
-| Hacker News | 11,883 | 4,381 | 63% |
-| MDN — JavaScript | 51,862 | 23,324 | 55% |
-| BBC News | 123,673 | 28,855 | 77% |
-| Rust Lang | 5,107 | 1,515 | 70% |
-| Python docs — asyncio | 6,686 | 2,385 | 64% |
-| **Total** | **410,034** | **171,514** | **58%** |
+| GitHub Blog | 92,352 | 26,459 | 71% |
+| Hacker News | 11,790 | 4,237 | 64% |
+| MDN — JavaScript | 51,417 | 8,855 | 83% |
+| BBC News | 116,111 | 27,207 | 77% |
+| Rust Lang | 5,107 | 1,163 | 77% |
+| Go pkg — net/http | 121,427 | 55,383 | 54% |
+| Python docs — asyncio | 6,692 | 1,473 | 78% |
+| Socket.dev — Axios compromise | 138,981 | 23,788 | 83% |
+| **Total** | **543,877** | **148,565** | **73%** |
 
 ### JSON → Schema-first
 
 | Endpoint | Raw tokens | Pruned | Schema-first | Best |
 |----------|-----------|--------|-------------|------|
 | GitHub API — repos | 16,518 | 7,055 | 2,474 | **85%** |
+| GitHub API — issues | 20,790 | 16,690 | 3,785 | **82%** |
 | JSONPlaceholder — posts | 8,761 | 8,761 | 315 | **96%** |
+| JSONPlaceholder — todos | 8,240 | 8,240 | 202 | **98%** |
 | JSONPlaceholder — users | 1,839 | 1,839 | 529 | **71%** |
 | JSONPlaceholder — comments | 492 | 479 | 330 | **33%** |
-| **Total** | **27,610** | — | **3,648** | **87%** |
+| npm — typescript | 1,750 | 1,745 | n/a | **0%** |
+| OpenLibrary — search | 1,646 | 1,640 | n/a | **0%** |
+| **Total** | **60,036** | — | **11,020** | **82%** |
 
-At Sonnet pricing ($3/M), that's **$0.79 saved per batch**. At Opus pricing ($15/M), **$3.94**.
+At Sonnet pricing ($3/M), that's **$1.33 saved per batch**. At Opus pricing ($15/M), **$6.67**.
 
 ## Tools
 
@@ -170,28 +176,28 @@ The fetcher and optimizer are also available as a standalone CLI for shell pipes
 
 ```bash
 # Smart-fetch any URL
-uv run python server.py smart_fetch https://example.com
+uv run fetch-mcp smart_fetch https://example.com
 
 # Smart-fetch JSON and extract specific fields with JSONPath
-uv run python server.py smart_fetch https://api.github.com/orgs/python/repos --jsonpath '$[*].name'
+uv run fetch-mcp smart_fetch https://api.github.com/orgs/python/repos --jsonpath '$[*].name'
 
 # Browser-fetch a JavaScript-rendered or HTTP-client-blocked page
-uv run python server.py browser_fetch https://example.com
+uv run fetch-mcp browser_fetch https://example.com
 
 # Open a visible browser for manual CAPTCHA/login, then extract after waiting
-uv run python server.py browser_fetch https://example.com --headed --wait-ms 30000
+uv run fetch-mcp browser_fetch https://example.com --headed --wait-ms 30000
 
 # Optimize any JSON from stdin
-curl -s https://api.github.com/orgs/python/repos | uv run python server.py optimize
+curl -s https://api.github.com/orgs/python/repos | uv run fetch-mcp optimize
 
 # Extract specific fields with JSONPath
-cat response.json | uv run python server.py optimize --jsonpath '$[*].name'
+cat response.json | uv run fetch-mcp optimize --jsonpath '$[*].name'
 
 # Control nesting depth
-echo '{"deep": {"nested": {"data": 1}}}' | uv run python server.py optimize --max-depth 2
+echo '{"deep": {"nested": {"data": 1}}}' | uv run fetch-mcp optimize --max-depth 2
 
 # View savings report
-uv run python server.py report
+uv run fetch-mcp report
 ```
 
 ### Savings Tracking
@@ -199,7 +205,7 @@ uv run python server.py report
 Every call to `optimize_json`, `smart_fetch`, and the CLI logs the before/after character counts to `~/.local/share/fetch-mcp/savings.jsonl`. View the cumulative report:
 
 ```bash
-uv run python server.py report
+uv run fetch-mcp report
 ```
 
 ```
@@ -228,7 +234,7 @@ Or clone locally for development:
 
 ```bash
 git clone https://github.com/micaelmalta/fetch-mcp.git && cd fetch-mcp
-uv sync
+uv sync --group dev
 ```
 
 Install as a Claude skill:
@@ -357,7 +363,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 ### MCP Inspector (dev)
 
 ```bash
-uv run mcp dev server.py
+uv run mcp dev fetch_mcp/server.py
 ```
 
 ### Integration Summary
@@ -367,12 +373,12 @@ uv run mcp dev server.py
 | **Add MCP** | `claude mcp add` | `.cursor/mcp.json` | `.opencode.json` | `claude_desktop_config.json` |
 | **Instruct agent** | `CLAUDE.md` | `.cursorrules` | `.opencode.md` | Server instructions (built-in) |
 | **Auto-hook + logging** | `PostToolUse` hook | Not supported | Not supported | Not supported |
-| **CLI pipe** | `\| uv run python server.py optimize` | N/A | N/A | N/A |
+| **CLI pipe** | `\| uv run fetch-mcp optimize` | N/A | N/A | N/A |
 
 ## Benchmark
 
 ```bash
-uv run python benchmark.py
+uv run python scripts/benchmark.py
 ```
 
 Fetches real pages and API endpoints, counts tokens with `tiktoken` (cl100k_base), and compares raw vs optimized output across HTML and JSON with cost estimates.
