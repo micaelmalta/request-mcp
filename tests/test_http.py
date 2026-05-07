@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import httpx
-import pytest
 
 from fetch_mcp.http import _find_chrome_executable, _handle_error, _is_json_content
 
