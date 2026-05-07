@@ -13,3 +13,4 @@ wheels/
 .cursor
 .vscode
 .pytest_cache
+context/
