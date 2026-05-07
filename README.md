@@ -72,7 +72,7 @@ Run `uv run python scripts/benchmark.py` to reproduce. Results from real endpoin
 | OpenLibrary — search | 1,646 | 1,640 | n/a | **0%** |
 | **Total** | **60,036** | — | **11,020** | **82%** |
 
-At Sonnet pricing ($3/M), that's **$1.33 saved per batch**. At Opus pricing ($15/M), **$6.67**.
+At Sonnet pricing ($3/M), that's **$1.33 saved per batch**. At Opus pricing ($15/M), **$6.66**.
 
 ## Tools
 
