@@ -368,7 +368,6 @@ async def pdf_fetch(
     """Fetch a PDF URL and return its text content as markdown.
 
     Falls back to HTML markdown if the URL does not return a PDF.
-    Requires pdfminer.six: `uv add pdfminer.six`.
     """
     try:
         response = await _fetch_raw(url, extra_headers=headers)

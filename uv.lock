@@ -388,13 +388,9 @@ dependencies = [
     { name = "httpx" },
     { name = "jsonpath-ng" },
     { name = "mcp", extra = ["cli"] },
+    { name = "pdfminer-six" },
     { name = "playwright" },
     { name = "truststore" },
-]
-
-[package.optional-dependencies]
-pdf = [
-    { name = "pdfminer-six" },
 ]
 
 [package.dev-dependencies]
@@ -416,11 +412,10 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "jsonpath-ng", specifier = ">=1.8.0" },
     { name = "mcp", extras = ["cli"], specifier = ">=1.26.0" },
-    { name = "pdfminer-six", marker = "extra == 'pdf'", specifier = ">=20221105" },
+    { name = "pdfminer-six", specifier = ">=20221105" },
     { name = "playwright", specifier = ">=1.58.0" },
     { name = "truststore", specifier = ">=0.10.4" },
 ]
-provides-extras = ["pdf"]
 
 [package.metadata.requires-dev]
 dev = [

@@ -11,6 +11,7 @@ dependencies = [
     "httpx>=0.28.1",
     "jsonpath-ng>=1.8.0",
     "mcp[cli]>=1.26.0",
+    "pdfminer.six>=20221105",
     "playwright>=1.58.0",
     "truststore>=0.10.4",
 ]
@@ -25,9 +26,6 @@ build-backend = "hatchling.build"
 [[tool.uv.index]]
 url = "https://pypi.org/simple"
 default = true
-
-[project.optional-dependencies]
-pdf = ["pdfminer.six>=20221105"]
 
 [dependency-groups]
 dev = [

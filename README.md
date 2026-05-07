@@ -141,7 +141,6 @@ Fetch a page and return only content matching a CSS selector. Use when you know 
 
 Fetch a URL that serves a PDF and return its text as plain markdown. Falls back to HTML→markdown if the URL does not return a PDF.
 
-Requires `pdfminer.six`: `uv add pdfminer.six` (optional dependency, not installed by default).
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
